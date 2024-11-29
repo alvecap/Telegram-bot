@@ -6,12 +6,21 @@ import telegram
 from datetime import datetime, timedelta
 import pytz
 from openai import OpenAI
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
+class FootballPredictor:
+    def __init__(self):
+        self.api_key = os.getenv('API_KEY')
+        self.telegram_token = os.getenv('TELEGRAM_TOKEN')
+        self.chat_id = os.getenv('CHAT_ID')
+        self.nebius_key = os.getenv('NEBIUS_KEY')
 nest_asyncio.apply()
 
 class FootballPredictor:
     def __init__(self):
-        self.api_key = 'd73cb48b3658c3508a75b907d52529d4'
+        self.api_key = '11952f0074584d9916d1e382f0c93fee'
         self.telegram_token = '7859048967:AAGtkGTwIUDN44PZB76EyvD1zogyJPCMOmw'
         self.chat_id = '-1002421926748'
         self.nebius_key = "eyJhbGciOiJIUzI1NiIsImtpZCI6IlV6SXJWd1h0dnprLVRvdzlLZWstc0M1akptWXBvX1VaVkxUZlpnMDRlOFUiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJnb29nbGUtb2F1dGgyfDEwODMxNDA0MDg1NDgyMzQ4NzI0MCIsInNjb3BlIjoib3BlbmlkIG9mZmxpbmVfYWNjZXNzIiwiaXNzIjoiYXBpX2tleV9pc3N1ZXIiLCJhdWQiOlsiaHR0cHM6Ly9uZWJpdXMtaW5mZXJlbmNlLmV1LmF1dGgwLmNvbS9hcGkvdjIvIl0sImV4cCI6MTg4OTcwMDExMSwidXVpZCI6IjMxMjlkOGZkLWUzNTYtNDE2OS05Nzc1LWI5NWQ3YjUwZDViNyIsIm5hbWUiOiJVbm5hbWVkIGtleSIsImV4cGlyZXNfYXQiOiIyMDI5LTExLTE4VDEyOjQxOjUxKzAwMDAifQ.pPRyd-siU9oU93fzxyrjktLBqKvpEpqdcxvRQ0Rf0QA"
