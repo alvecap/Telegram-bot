@@ -6,30 +6,22 @@ import telegram
 from datetime import datetime, timedelta
 import pytz
 from openai import OpenAI
-import os
-from dotenv import load_dotenv
-load_dotenv()
+
+nest_asyncio.apply()
 
 class FootballPredictor:
     def __init__(self):
-        self.api_key = os.getenv('API_KEY')
-        self.telegram_token = os.getenv('TELEGRAM_TOKEN')
-        self.chat_id = os.getenv('CHAT_ID')
-        self.nebius_key = os.getenv('NEBIUS_KEY')
+        self.api_key = 'd73cb48b3658c3508a75b907d52529d4'
+        self.telegram_token = '7859048967:AAGtkGTwIUDN44PZB76EyvD1zogyJPCMOmw'
+        self.chat_id = '-1002421926748'
+        self.nebius_key = "eyJhbGciOiJIUzI1NiIsImtpZCI6IlV6SXJWd1h0dnprLVRvdzlLZWstc0M1akptWXBvX1VaVkxUZlpnMDRlOFUiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJnb29nbGUtb2F1dGgyfDEwODMxNDA0MDg1NDgyMzQ4NzI0MCIsInNjb3BlIjoib3BlbmlkIG9mZmxpbmVfYWNjZXNzIiwiaXNzIjoiYXBpX2tleV9pc3N1ZXIiLCJhdWQiOlsiaHR0cHM6Ly9uZWJpdXMtaW5mZXJlbmNlLmV1LmF1dGgwLmNvbS9hcGkvdjIvIl0sImV4cCI6MTg4OTcwMDExMSwidXVpZCI6IjMxMjlkOGZkLWUzNTYtNDE2OS05Nzc1LWI5NWQ3YjUwZDViNyIsIm5hbWUiOiJVbm5hbWVkIGtleSIsImV4cGlyZXNfYXQiOiIyMDI5LTExLTE4VDEyOjQxOjUxKzAwMDAifQ.pPRyd-siU9oU93fzxyrjktLBqKvpEpqdcxvRQ0Rf0QA"
         
         self.bot = telegram.Bot(token=self.telegram_token)
-        
-        # Modified OpenAI client initialization without proxies
-        self.ai_client = OpenAI(
-            base_url="https://api.studio.nebius.ai/v1/",
-            api_key=self.nebius_key,
-            default_headers={"Content-Type": "application/json"}
-        )
+        self.ai_client = OpenAI(base_url="https://api.studio.nebius.ai/v1/", api_key=self.nebius_key)
         
         # Fuseau horaire Afrique centrale
         self.timezone = pytz.timezone('Africa/Lagos')  # UTC+1
 
-    # Rest of the code remains the same...
     def get_matches(self):
         response = requests.get(
             'https://api.the-odds-api.com/v4/sports/soccer/odds',
@@ -48,6 +40,7 @@ class FootballPredictor:
         for match in matches:
             match_time = datetime.fromisoformat(match['commence_time'].replace('Z', '+00:00')).astimezone(self.timezone)
             
+            # Vérifier si le match est aujourd'hui et n'est pas en live
             if (match_time.date() == now.date() and 
                 match_time > now and 
                 any(b['key'] == 'onexbet' for b in match['bookmakers'])):
@@ -142,6 +135,7 @@ RÉPONDRE UNIQUEMENT AVEC LA PRÉDICTION."""
         predictions = []
         random.shuffle(matches)
         
+        # On prend entre 3 et 5 matches si disponible
         target_matches = min(random.randint(3, 5), len(matches))
         print(f"Tentative de trouver {target_matches} matches...")
 
@@ -224,5 +218,4 @@ RÉPONDRE UNIQUEMENT AVEC LA PRÉDICTION."""
 if __name__ == "__main__":
     print(f"Service démarré le {datetime.now()}")
     print("Premier envoi immédiat puis chaque jour à 8h00")
-    nest_asyncio.apply()
     asyncio.run(FootballPredictor().run())
