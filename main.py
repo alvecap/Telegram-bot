@@ -14,7 +14,11 @@ class FootballPredictor:
         self.api_key = 'd73cb48b3658c3508a75b907d52529d4'
         self.telegram_token = '7859048967:AAGtkGTwIUDN44PZB76EyvD1zogyJPCMOmw'
         self.chat_id = '-1002421926748'
-        self.nebius_key = "eyJhbGciOiJIUzI1NiIsImtpZCI6IlV6SXJWd1h0dnprLVRvdzlLZWstc0M1akptWXBvX1VaVkxUZlpnMDRlOFUiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJnb29nbGUtb2F1dGgyfDEwODMxNDA0MDg1NDgyMzQ4NzI0MCIsInNjb3BlIjoib3BlbmlkIG9mZmxpbmVfYWNjZXNzIiwiaXNzIjoiYXBpX2tleV9pc3N1ZXIiLCJhdWQiOlsiaHR0cHM6Ly9uZWJpdXMtaW5mZXJlbmNlLmV1LmF1dGgwLmNvbS9hcGkvdjIvIl0sImV4cCI6MTg4OTcwMDExMSwidXVpZCI6IjMxMjlkOGZkLWUzNTYtNDE2OS05Nzc1LWI5NWQ3YjUwZDViNyIsIm5hbWUiOiJVbm5hbWVkIGtleSIsImV4cGlyZXNfYXQiOiIyMDI5LTExLTE4VDEyOjQxOjUxKzAwMDAifQ.pPRyd-siU9oU93fzxyrjktLBqKvpEpqdcxvRQ0Rf0QA"
+        self.nebius_key = "eyJhbGciOiJIUzI1NiIsImtpZCI6IlV6SXJWd1h0dnprLVRvdzlLZWstc0M1akptWXBvX1VaVkxUZlpnMDRlOFUiLCJ0eXAiOiJKV1QifQ."
+            "eyJzdWIiOiJnb29nbGUtb2F1dGgyfDEwODMxNDA0MDg1NDgyMzQ4NzI0MCIsInNjb3BlIjoib3BlbmlkIG9mZmxpbmVfYWNjZXNzIiwiaXNz"
+            "IjoiYXBpX2tleV9pc3N1ZXIiLCJhdWQiOlsiaHR0cHM6Ly9uZWJpdXMtaW5mZXJlbmNlLmV1LmF1dGgwLmNvbS9hcGkvdjIvIl0sImV4cCI6"
+            "MTg5MTA4OTU1MSwidXVpZCI6IjFmMWFiNjVjLWQ4ZDktNDc1OC04OWUzLTRhOGNkNWM0NGQyZiIsIm5hbWUiOiJBTCBWRSBDQVBJVEFMIiwi"
+            "ZXhwaXJlc19hdCI6IjIwMjktMTItMDRUMTQ6Mzk6MTErMDAwMCJ9.QzzRrQXss4nG_QqeNBz2W47zyBFterzDn70_Tr0DBPw"
         
         self.bot = telegram.Bot(token=self.telegram_token)
         self.ai_client = OpenAI(base_url="https://api.studio.nebius.ai/v1/", api_key=self.nebius_key)
