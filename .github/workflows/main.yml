@@ -1,5 +1,5 @@
 # .github/workflows/betting-bot.yml
-name: Betting Bot
+name: Telegram-Bot
 
 on:
   push:
@@ -31,4 +31,4 @@ jobs:
         ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
         PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
         CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
-      run: python betting_bot.py
+      run: python main.py
