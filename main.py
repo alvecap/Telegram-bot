@@ -347,16 +347,15 @@ class BettingBot:
                         predictions.append(prediction)
                 time.sleep(10)
 
-            if predictions:
-               self.send_predictions(predictions)
-               self.immediate_combo_sent = True
-               print("=== PROCESSUS TERMINÉ ===")
+           if predictions:
+                self.send_predictions(predictions)
+                self.immediate_combo_sent = True
+                print("=== PROCESSUS TERMINÉ ===")
            else:
-               print("❌ Aucune prédiction fiable")
+                print("❌ Aucune prédiction fiable")
 
-       except Exception as e:
-           print(f"❌ ERREUR: {str(e)}")
-
+        except Exception as e:
+            print(f"❌ ERREUR: {str(e)}")
 def main():
    config = Config(
        TELEGRAM_BOT_TOKEN=os.getenv('TELEGRAM_BOT_TOKEN'),
