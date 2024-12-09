@@ -215,11 +215,18 @@ if __name__ == "__main__":
 
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
-import threading
 import os
+import threading
 
+# Vérifiez si toutes les variables d'environnement nécessaires sont présentes
+required_keys = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'ODDS_API_KEY', 'PERPLEXITY_API_KEY', 'CLAUDE_API_KEY']
+for key in required_keys:
+    if not os.getenv(key):
+        print(f"⚠️ La variable d'environnement {key} est manquante ou vide. Assurez-vous de l'avoir configurée dans Render.")
+
+# Lancer un serveur HTTP minimal pour que Render détecte le port
 def start_http_server():
-    port = int(os.getenv("PORT", 8080))  # Render assigne automatiquement un port via la variable d'environnement PORT
+    port = int(os.getenv("PORT", 8080))  # Render fournit automatiquement cette variable
     class SimpleHandler(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
@@ -231,12 +238,14 @@ def start_http_server():
     httpd.serve_forever()
 
 if __name__ == "__main__":
-    # Démarrer le bot dans un thread séparé
-    bot_thread = threading.Thread(target=main, daemon=True)
-    bot_thread.start()
-
-    # Lancer le serveur HTTP
-    start_http_server()
+    # Lancer le bot dans un thread parallèle pour éviter de bloquer le serveur HTTP
+    try:
+        bot_thread = threading.Thread(target=main, daemon=True)  # `main` est votre fonction principale
+        bot_thread.start()
+        start_http_server()
+    except Exception as e:
+        print(f"❌ Erreur lors de l'initialisation : {e}")
+        exit(1)
 
 
 
