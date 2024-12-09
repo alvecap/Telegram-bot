@@ -1,10 +1,11 @@
-name: Run Bot
+# .github/workflows/betting-bot.yml
+name: Betting Bot
 
 on:
   push:
     branches: [ main ]
   schedule:
-    - cron: '0 8 * * *'  # Runs at 8:00 UTC daily
+    - cron: '0 7 * * *'  # Exécution à 7h UTC (8h heure d'Afrique centrale)
 
 jobs:
   run-bot:
@@ -25,8 +26,9 @@ jobs:
     
     - name: Run bot
       env:
-        API_KEY: ${{ secrets.API_KEY }}
-        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-        CHAT_ID: ${{ secrets.CHAT_ID }}
-        NEBIUS_KEY: ${{ secrets.NEBIUS_KEY }}
-      run: python main.py
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+        CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+      run: python betting_bot.py
