@@ -212,3 +212,29 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+import os
+
+def start_http_server():
+    port = int(os.getenv("PORT", 8080))  # Render spécifie automatiquement le port dans la variable d'environnement PORT
+    class SimpleHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Bot is running!")
+
+    httpd = HTTPServer(("0.0.0.0", port), SimpleHandler)
+    print(f"🚀 HTTP server started on port {port}")
+    httpd.serve_forever()
+
+if __name__ == "__main__":
+    # Démarrer le bot dans un thread séparé
+    bot_thread = threading.Thread(target=main, daemon=True)
+    bot_thread.start()
+
+    # Lancer le serveur HTTP
+    start_http_server()
+
