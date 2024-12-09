@@ -219,7 +219,7 @@ import threading
 import os
 
 def start_http_server():
-    port = int(os.getenv("PORT", 8080))  # Render spécifie automatiquement le port via la variable d'environnement PORT
+    port = int(os.getenv("PORT", 8080))  # Render assigne automatiquement un port via la variable d'environnement PORT
     class SimpleHandler(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
@@ -237,6 +237,7 @@ if __name__ == "__main__":
 
     # Lancer le serveur HTTP
     start_http_server()
+
 
 
     # Lancer le serveur HTTP
