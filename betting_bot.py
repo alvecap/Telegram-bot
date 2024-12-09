@@ -1,7 +1,6 @@
 import requests
 import anthropic
 import logging
-from logging.handlers import RotatingFileHandler
 import telegram
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Optional
@@ -11,7 +10,6 @@ import time
 from retry import retry
 import random
 import os
-from dotenv import load_dotenv
 import sys
 
 logging.basicConfig(
@@ -108,7 +106,7 @@ class BettingBot:
                 commence_time = datetime.fromisoformat(match_data["commence_time"].replace('Z', '+00:00'))
                 time_difference = commence_time - current_time
                 
-                if 0 < time_difference.total_seconds() <= 86400:  # 24 heures
+                if 0 < time_difference.total_seconds() <= 86400:
                     match = Match(
                         home_team=match_data.get("home_team", "Unknown"),
                         away_team=match_data.get("away_team", "Unknown"),
@@ -185,10 +183,8 @@ class BettingBot:
 
         print("3️⃣ ANALYSE AVEC CLAUDE")
         try:
-            # Préparation détaillée des cotes
             odds_info = "ANALYSE DÉTAILLÉE DES COTES:\n\n"
             
-            # Analyse par type de pari
             h2h_odds = []
             over_under_odds = []
             draw_no_bet_odds = []
@@ -208,7 +204,6 @@ class BettingBot:
                             elif 'dnb' in market_type:
                                 draw_no_bet_odds.append((bm_name, odds))
 
-            # Formatage des cotes pour le prompt
             if h2h_odds:
                 odds_info += "COTES 1X2:\n"
                 for bm_name, odds in h2h_odds:
@@ -350,38 +345,27 @@ class BettingBot:
                         predictions.append(prediction)
                 time.sleep(10)
 
-          if predictions:
-                    self.send_predictions(predictions)
-                    self.immediate_combo_sent = True
-                    print("=== PROCESSUS TERMINÉ ===")
-                else:
-                    print("❌ Aucune prédiction fiable")
+           if predictions:
+               self.send_predictions(predictions)
+               self.immediate_combo_sent = True
+               print("=== PROCESSUS TERMINÉ ===")
+           else:
+               print("❌ Aucune prédiction fiable")
 
-        except Exception as e:
-            print(f"❌ ERREUR: {str(e)}")
-
-if predictions:
-                self.send_predictions(predictions)
-                self.immediate_combo_sent = True
-                print("=== PROCESSUS TERMINÉ ===")
-            else:
-                print("❌ Aucune prédiction fiable")
-
-        except Exception as e:
-            print(f"❌ ERREUR: {str(e)}")
+       except Exception as e:
+           print(f"❌ ERREUR: {str(e)}")
 
 if __name__ == "__main__":
-    # Pour tester le bot localement
-    from dotenv import load_dotenv
-    load_dotenv()
-    
-    config = Config(
-        TELEGRAM_BOT_TOKEN=os.getenv('TELEGRAM_BOT_TOKEN'),
-        TELEGRAM_CHAT_ID=os.getenv('TELEGRAM_CHAT_ID'),
-        ODDS_API_KEY=os.getenv('ODDS_API_KEY'),
-        PERPLEXITY_API_KEY=os.getenv('PERPLEXITY_API_KEY'),
-        CLAUDE_API_KEY=os.getenv('CLAUDE_API_KEY')
-    )
-    
-    bot = BettingBot(config)
-    bot.run()
+   from dotenv import load_dotenv
+   load_dotenv()
+   
+   config = Config(
+       TELEGRAM_BOT_TOKEN=os.getenv('TELEGRAM_BOT_TOKEN'),
+       TELEGRAM_CHAT_ID=os.getenv('TELEGRAM_CHAT_ID'),
+       ODDS_API_KEY=os.getenv('ODDS_API_KEY'),
+       PERPLEXITY_API_KEY=os.getenv('PERPLEXITY_API_KEY'),
+       CLAUDE_API_KEY=os.getenv('CLAUDE_API_KEY')
+   )
+   
+   bot = BettingBot(config)
+   bot.run()
