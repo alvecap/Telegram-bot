@@ -346,14 +346,19 @@ class BettingBot:
                 time.sleep(10)
 
            if predictions:
-               self.send_predictions(predictions)
-               self.immediate_combo_sent = True
-               print("=== PROCESSUS TERMINÉ ===")
-           else:
-               print("❌ Aucune prédiction fiable")
+                self.send_predictions(predictions)
+                self.immediate_combo_sent = True
+                print("=== PROCESSUS TERMINÉ ===")
+            else:
+                print("❌ Aucune prédiction fiable")
 
-       except Exception as e:
-           print(f"❌ ERREUR: {str(e)}")
+        except Exception as e:
+            print(f"❌ ERREUR: {str(e)}")
+            
+    def run_daily_task(self):
+        print("\n=== TÂCHE QUOTIDIENNE ===")
+        self.immediate_combo_sent = False
+        self.run()
 
 if __name__ == "__main__":
    from dotenv import load_dotenv
