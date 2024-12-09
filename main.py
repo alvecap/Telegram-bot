@@ -1,227 +1,412 @@
+# Installation des dépendances
+
+
 import requests
-import random
-import asyncio
-import nest_asyncio
+import anthropic
+import logging
+from logging.handlers import RotatingFileHandler
 import telegram
-from datetime import datetime, timedelta
-import pytz
-from openai import OpenAI
+from datetime import datetime, timezone, timedelta
+from typing import List, Dict, Optional
+from dataclasses import dataclass
+import re
+import schedule
+import time
+from retry import retry
+import random
+import os
+from dotenv import load_dotenv
+import sys
 
-nest_asyncio.apply()
+# Configuration des logs pour Colab
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
-class FootballPredictor:
-    def __init__(self):
-        self.api_key = 'd73cb48b3658c3508a75b907d52529d4'
-        self.telegram_token = '7859048967:AAGtkGTwIUDN44PZB76EyvD1zogyJPCMOmw'
-        self.chat_id = '-1002421926748'
-          self.nebius_key = (
-            "eyJhbGciOiJIUzI1NiIsImtpZCI6IlV6SXJWd1h0dnprLVRvdzlLZWstc0M1akptWXBvX1VaVkxUZlpnMDRlOFUiLCJ0eXAiOiJKV1QifQ."
-            "eyJzdWIiOiJnb29nbGUtb2F1dGgyfDEwODMxNDA0MDg1NDgyMzQ4NzI0MCIsInNjb3BlIjoib3BlbmlkIG9mZmxpbmVfYWNjZXNzIiwiaXNz"
-            "IjoiYXBpX2tleV9pc3N1ZXIiLCJhdWQiOlsiaHR0cHM6Ly9uZWJpdXMtaW5mZXJlbmNlLmV1LmF1dGgwLmNvbS9hcGkvdjIvIl0sImV4cCI6"
-            "MTg5MTA4OTU1MSwidXVpZCI6IjFmMWFiNjVjLWQ4ZDktNDc1OC04OWUzLTRhOGNkNWM0NGQyZiIsIm5hbWUiOiJBTCBWRSBDQVBJVEFMIiwi"
-            "ZXhwaXJlc19hdCI6IjIwMjktMTItMDRUMTQ6Mzk6MTErMDAwMCJ9.QzzRrQXss4nG_QqeNBz2W47zyBFterzDn70_Tr0DBPw"
-        )
-        
-        self.bot = telegram.Bot(token=self.telegram_token)
-        self.ai_client = OpenAI(base_url="https://api.studio.nebius.ai/v1/", api_key=self.nebius_key)
-        
-        # Fuseau horaire Afrique centrale
-        self.timezone = pytz.timezone('Africa/Lagos')  # UTC+1
+print("=== INITIALISATION DU BOT DE PARIS SPORTIFS ===")
+logger.info("Démarrage du système de logs...")
 
-    def get_matches(self):
-        response = requests.get(
-            'https://api.the-odds-api.com/v4/sports/soccer/odds',
-            params={
-                'apiKey': self.api_key,
-                'regions': 'eu',
-                'markets': 'h2h,totals'
-            }
-        )
-        matches = response.json()
+@dataclass
+class Config:
+    TELEGRAM_BOT_TOKEN: str
+    TELEGRAM_CHAT_ID: str
+    ODDS_API_KEY: str
+    PERPLEXITY_API_KEY: str
+    CLAUDE_API_KEY: str
+    MIN_MATCHES: int = 2
+    MAX_MATCHES: int = 4
+    MAX_RETRIES: int = 3
+    RETRY_DELAY: int = 5
+
+@dataclass
+class Match:
+    home_team: str
+    away_team: str
+    competition: str
+    region: str
+    commence_time: datetime
+    bookmakers: List[Dict]
+    all_odds: List[Dict]
+    last_prediction: str = ""
+
+@dataclass
+class Prediction:
+    region: str
+    competition: str
+    match: str
+    time: str
+    prediction: str
+    confidence: int
+    explanation: str
+
+class BettingBot:
+    def __init__(self, config: Config):
+        print("Initialisation du bot...")
+        self.config = config
+        self.bot = telegram.Bot(token=config.TELEGRAM_BOT_TOKEN)
+        self.claude_client = anthropic.Anthropic(api_key=config.CLAUDE_API_KEY)
+        self.immediate_combo_sent = False
+        self.last_execution_date = None
+        self.available_predictions = ["+1.5 buts", "-3.5 buts", "1X", "X2", "12"]
+        print("Bot initialisé avec succès!")
+
+    def _get_region(self, competition: str) -> str:
+        regions = {
+            "Premier League": "Angleterre 🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+            "La Liga": "Espagne 🇪🇸",
+            "Bundesliga": "Allemagne 🇩🇪",
+            "Serie A": "Italie 🇮🇹",
+            "Ligue 1": "France 🇫🇷",
+            "Champions League": "Europe 🇪🇺",
+            "Europa League": "Europe 🇪🇺",
+            "Conference League": "Europe 🇪🇺"
+        }
+        return regions.get(competition, competition)
+
+    @retry(tries=3, delay=5, backoff=2, logger=logger)
+    def fetch_matches(self) -> List[Match]:
+        if self.last_execution_date == datetime.now().date():
+            print("Un combo a déjà été envoyé aujourd'hui.")
+            return []
+
+        print("\n1️⃣ RÉCUPÉRATION DES MATCHS...")
+        url = "https://api.the-odds-api.com/v4/sports/soccer/odds/"
+        params = {
+            "apiKey": self.config.ODDS_API_KEY,
+            "regions": "eu",
+            "markets": "h2h,totals,spreads",
+            "oddsFormat": "decimal",
+            "dateFormat": "iso"
+        }
         
-        now = datetime.now(self.timezone)
-        today_end = now.replace(hour=23, minute=59, second=59)
-        
-        valid_matches = []
-        for match in matches:
-            match_time = datetime.fromisoformat(match['commence_time'].replace('Z', '+00:00')).astimezone(self.timezone)
+        try:
+            print("Connexion à l'API des cotes...")
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            matches_data = response.json()
+            print(f"✅ {len(matches_data)} matchs récupérés")
+
+            current_time = datetime.now(timezone.utc)
+            matches = []
             
-            # Vérifier si le match est aujourd'hui et n'est pas en live
-            if (match_time.date() == now.date() and 
-                match_time > now and 
-                any(b['key'] == 'onexbet' for b in match['bookmakers'])):
-                match['local_time'] = match_time
-                valid_matches.append(match)
+            for match_data in matches_data:
+                commence_time = datetime.fromisoformat(match_data["commence_time"].replace('Z', '+00:00'))
+                time_difference = commence_time - current_time
+                
+                if 0 < time_difference.total_seconds() <= 86400:  # 24 heures
+                    match = Match(
+                        home_team=match_data.get("home_team", "Unknown"),
+                        away_team=match_data.get("away_team", "Unknown"),
+                        competition=match_data.get("sport_title", "Unknown"),
+                        region=self._get_region(match_data.get("sport_title", "")),
+                        commence_time=commence_time,
+                        bookmakers=match_data.get("bookmakers", []),
+                        all_odds=match_data.get("bookmakers", [])
+                    )
+                    # Modifié : retirer temporairement la vérification du nombre de bookmakers
+                    matches.append(match)
+
+            print(f"Matchs dans les prochaines 24h: {len(matches)}")
+
+            if not matches:
+                print("❌ Aucun match trouvé pour les prochaines 24 heures")
+                return []
+
+            # Sélection aléatoire des matchs
+            num_matches = min(len(matches), random.randint(self.config.MIN_MATCHES, self.config.MAX_MATCHES))
+            selected_matches = random.sample(matches, num_matches)
+            
+            print(f"✅ Sélection de {len(selected_matches)} matchs:")
+            for match in selected_matches:
+                print(f"   • {match.home_team} vs {match.away_team} ({len(match.bookmakers)} bookmakers)")
+
+            return selected_matches
+
+        except Exception as e:
+            print(f"❌ Erreur lors de la récupération des matchs: {str(e)}")
+            raise
+
+    def get_match_stats(self, match: Match) -> Optional[str]:
+        print(f"\n2️⃣ ANALYSE DE {match.home_team} vs {match.away_team}")
+        url = "https://api.perplexity.ai/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.config.PERPLEXITY_API_KEY}",
+            "Content-Type": "application/json"
+        }
         
-        return valid_matches
-
-    def get_ai_prediction(self, match):
-        bookmaker = next(b for b in match['bookmakers'] if b['key'] == 'onexbet')
-        h2h = next(m for m in bookmaker['markets'] if m['key'] == 'h2h')
-        
-        home = next(o['price'] for o in h2h['outcomes'] if o['name'] == match['home_team'])
-        draw = next(o['price'] for o in h2h['outcomes'] if o['name'] == 'Draw')
-        away = next(o['price'] for o in h2h['outcomes'] if o['name'] == match['away_team'])
-
-        prompt = f"""ANALYSTE PARIS SPORTIF:
-{match['home_team']} vs {match['away_team']}
-Heure: {match['local_time'].strftime('%H:%M')}
-Côte 1: {home:.2f}
-Côte X: {draw:.2f}
-Côte 2: {away:.2f}
-
-DONNER UNE SEULE PRÉDICTION PARMI:
-Double chance: 1X
-Double chance: X2
-Double chance: 12
-Total buts: Over 2.5
-Total buts: Under 2.5
-Total buts: Under 3.5
-
-RÉPONDRE UNIQUEMENT AVEC LA PRÉDICTION."""
-
-        completion = self.ai_client.chat.completions.create(
-            model="meta-llama/Meta-Llama-3.1-70B-Instruct-fast",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=10
+        prompt = (
+            f"Recherche approfondie sur {match.home_team} vs {match.away_team}.\n"
+            "DONNÉES REQUISES:\n"
+            "1. Forme (5 derniers matchs)\n"
+            "2. Stats saison\n"
+            "3. H2H récents\n"
+            "4. Effectif et blessés\n"
+            "5. Enjeu du match\n"
+            "Format: Points clés uniquement."
         )
-        prediction = completion.choices[0].message.content.strip()
-
-        valid_predictions = [
-            "Double chance: 1X", "Double chance: X2", "Double chance: 12",
-            "Total buts: Over 2.5", "Total buts: Under 2.5", "Total buts: Under 3.5"
-        ]
         
-        if prediction in valid_predictions:
-            print(f"Prediction for {match['home_team']} vs {match['away_team']} ({match['local_time'].strftime('%H:%M')}): {prediction}")
-            return prediction
-        return None
-
-    def get_real_odds(self, match, prediction):
-        bookmaker = next(b for b in match['bookmakers'] if b['key'] == 'onexbet')
-        h2h = next(m for m in bookmaker['markets'] if m['key'] == 'h2h')
-
-        home = float(next(o['price'] for o in h2h['outcomes'] if o['name'] == match['home_team']))
-        draw = float(next(o['price'] for o in h2h['outcomes'] if o['name'] == 'Draw'))
-        away = float(next(o['price'] for o in h2h['outcomes'] if o['name'] == match['away_team']))
-
-        if prediction == "Double chance: 1X":
-            odds = 1 / (1/home + 1/draw)
-        elif prediction == "Double chance: X2":
-            odds = 1 / (1/away + 1/draw)
-        elif prediction == "Double chance: 12":
-            odds = 1 / (1/home + 1/away)
-        elif "Total buts" in prediction:
-            value = prediction.split(': ')[1]
-            totals = next(m for m in bookmaker['markets'] if m['key'] == 'totals')
-            for outcome in totals['outcomes']:
-                if value in outcome['name']:
-                    odds = float(outcome['price'])
-                    break
-
-        odds = round(odds, 2)
-        return odds
-
-    def format_competition(self, competition):
-        parts = competition.split()
-        if len(parts) > 1:
-            country = parts[0]
-            league = ' '.join(parts[1:])
-            return f"⚽️ *{country}*: {league}"
-        return f"⚽️ *{competition}*"
-
-    async def prepare_and_send_predictions(self):
-        matches = self.get_matches()
-        print(f"Matches disponibles aujourd'hui: {len(matches)}")
-        
-        if not matches:
-            return False
-
-        predictions = []
-        random.shuffle(matches)
-        
-        # On prend entre 3 et 5 matches si disponible
-        target_matches = min(random.randint(3, 5), len(matches))
-        print(f"Tentative de trouver {target_matches} matches...")
-
-        for match in matches:
-            if len(predictions) >= target_matches:
-                break
-
-            prediction = self.get_ai_prediction(match)
-            if prediction:
-                odds = self.get_real_odds(match, prediction)
-                if odds:
-                    predictions.append({
-                        'competition': match['sport_title'],
-                        'match': f"{match['home_team']} vs {match['away_team']}",
-                        'time': match['local_time'].strftime('%H:%M'),
-                        'prediction': prediction,
-                        'odds': odds
-                    })
-
-        if len(predictions) >= 3:
-            total_odds = 1.0
-            message = "🎯 *COMBO VIP DU JOUR* 🎯\n\n"
-
-            for pred in predictions:
-                total_odds *= pred['odds']
-                message += (
-                    f"{self.format_competition(pred['competition'])}\n"
-                    f"⏰ *{pred['time']}*\n"
-                    f"👥 *{pred['match']}*\n"
-                    f"🎯 *{pred['prediction']}*\n"
-                    f"💰 *{pred['odds']:.2f}*\n\n"
-                    f"{'─' * 15}\n\n"
-                )
-
-            message += f"📈 *COTE TOTALE*: *{total_odds:.2f}*"
-
-            requests.post(
-                f'https://api.telegram.org/bot{self.telegram_token}/sendMessage',
+        try:
+            print("Récupération des statistiques...")
+            response = requests.post(
+                url,
+                headers=headers,
                 json={
-                    'chat_id': self.chat_id,
-                    'text': message,
-                    'parse_mode': 'Markdown'
-                }
+                    "model": "llama-3.1-sonar-large-128k-online",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 800,
+                    "temperature": 0.2
+                },
+                timeout=20
             )
-            print(f"Combo de {len(predictions)} matches envoyé avec succès")
-            return True
-            
-        print(f"Pas assez de matches valides trouvés ({len(predictions)})")
-        return False
+            response.raise_for_status()
+            stats = response.json()["choices"][0]["message"]["content"]
+            print("✅ Statistiques récupérées")
+            return stats
+        except Exception as e:
+            print(f"❌ Erreur: {str(e)}")
+            return None
 
-    async def run(self):
-        # Message de démarrage
-        requests.post(
-            f'https://api.telegram.org/bot{self.telegram_token}/sendMessage',
-            json={
-                'chat_id': self.chat_id,
-                'text': "🚀 Service démarré",
-                'parse_mode': 'Markdown'
-            }
+    def analyze_match(self, match: Match, stats: Optional[str]) -> Optional[Prediction]:
+        if not stats:
+            return None
+
+        print("3️⃣ ANALYSE AVEC CLAUDE")
+        try:
+            # Préparation détaillée des cotes
+            odds_info = "ANALYSE DÉTAILLÉE DES COTES:\n\n"
+            
+            # Analyse par type de pari
+            h2h_odds = []
+            over_under_odds = []
+            draw_no_bet_odds = []
+            
+            for bm in match.all_odds:
+                if 'markets' in bm and bm['markets']:
+                    bm_name = bm.get('title', 'Unknown')
+                    for market in bm['markets']:
+                        if market.get('outcomes'):
+                            market_type = market.get('key', '')
+                            odds = {outcome['name']: outcome['price'] for outcome in market['outcomes']}
+                            
+                            if 'h2h' in market_type:
+                                h2h_odds.append((bm_name, odds))
+                            elif 'totals' in market_type:
+                                over_under_odds.append((bm_name, odds))
+                            elif 'dnb' in market_type:
+                                draw_no_bet_odds.append((bm_name, odds))
+
+            # Formatage des cotes pour le prompt
+            if h2h_odds:
+                odds_info += "COTES 1X2:\n"
+                for bm_name, odds in h2h_odds:
+                    odds_info += f"{bm_name}: {', '.join(f'{k}={v:.2f}' for k, v in odds.items())}\n"
+                
+            if over_under_odds:
+                odds_info += "\nCOTES OVER/UNDER:\n"
+                for bm_name, odds in over_under_odds:
+                    odds_info += f"{bm_name}: {', '.join(f'{k}={v:.2f}' for k, v in odds.items())}\n"
+                
+            if draw_no_bet_odds:
+                odds_info += "\nCOTES DNB:\n"
+                for bm_name, odds in draw_no_bet_odds:
+                    odds_info += f"{bm_name}: {', '.join(f'{k}={v:.2f}' for k, v in odds.items())}\n"
+
+            prompt = (
+                f"ANALYSE APPROFONDIE: {match.home_team} vs {match.away_team}\n"
+                f"Compétition: {match.competition}\n\n"
+                "1. DONNÉES STATISTIQUES:\n"
+                f"{stats}\n\n"
+                f"2. {odds_info}\n\n"
+                "INSTRUCTIONS:\n"
+                "1. Analyser attentivement la convergence des cotes des différents bookmakers\n"
+                "2. Comparer les tendances des cotes avec les statistiques\n"
+                "3. Identifier les écarts significatifs entre bookmakers\n"
+                "4. Repérer les opportunités basées sur les cotes moyennes\n"
+                "5. Évaluer la fiabilité globale des prédictions\n\n"
+                "PRÉDICTIONS POSSIBLES (choisir la plus fiable):\n"
+                "- +1.5 buts : si forte probabilité de buts\n"
+                "- -3.5 buts : si match serré ou défensif\n"
+                "- 1X : si favori à domicile ou match serré\n"
+                "- X2 : si favori à l'extérieur ou match équilibré\n"
+                "- 12 : si faible probabilité de match nul\n\n"
+                "FORMAT DE RÉPONSE REQUIS:\n"
+                "PREDICTION: [choix le plus fiable]\n"
+                "CONFIANCE: [pourcentage, minimum 80%]\n"
+                "EXPLICATION: [justification basée sur les cotes ET les stats]"
+            )
+
+            print("Analyse en cours...")
+            message = self.claude_client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=1024,
+                temperature=0.7,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            response_text = message.content[0].text
+            
+            prediction_match = re.search(r"PREDICTION:\s*(.*)", response_text)
+            confidence_match = re.search(r"CONFIANCE:\s*(\d+)", response_text)
+            explanation_match = re.search(r"EXPLICATION:\s*(.*)", response_text, re.DOTALL)
+
+            if prediction_match and confidence_match and explanation_match:
+                prediction = prediction_match.group(1).strip()
+                confidence = int(confidence_match.group(1))
+                explanation = explanation_match.group(1).strip()
+
+                if confidence >= 80:  # Suppression de la vérification prediction in available_predictions
+                    print(f"✅ Prédiction : {prediction} ({confidence}%)")
+                    return Prediction(
+                        region=match.region,
+                        competition=match.competition,
+                        match=f"{match.home_team} vs {match.away_team}",
+                        time=match.commence_time.astimezone(timezone(timedelta(hours=1))).strftime("%H:%M"),
+                        prediction=prediction,
+                        confidence=confidence,
+                        explanation=explanation
+                    )
+
+            print("❌ Pas de prédiction fiable")
+            return None
+
+        except Exception as e:
+            print(f"❌ Erreur: {str(e)}")
+            return None
+        except Exception as e:
+            print(f"❌ Erreur: {str(e)}")
+            return None
+
+    def _format_predictions_message(self, predictions: List[Prediction]) -> str:
+        current_date = datetime.now().strftime("%d/%m/%Y")
+        
+        message = f"🎯 *COMBO DU {current_date}* 🎯\n\n"
+        
+        for i, pred in enumerate(predictions, 1):
+            message += (
+                f"🌍 *{pred.region}*\n"
+                f"👥 *{pred.match}*\n"
+                f"⏰ Heure : {pred.time}\n"
+                f"📌 Prédiction : *{pred.prediction}*\n"
+                f"🔒 Confiance : *{pred.confidence}%*\n"
+                f"{'─' * 20}\n\n"
+            )
+        
+        message += (
+            "_⚠️ Rappel important :_\n"
+            "_• Pariez de manière responsable_\n"
+            "_• Ne dépassez pas 5% de votre capital_"
         )
+        
+        return message
 
-        # Premier envoi
-        for _ in range(5):
-            if await self.prepare_and_send_predictions():
-                break
-            await asyncio.sleep(5)
+    def send_predictions(self, predictions: List[Prediction]) -> None:
+        if not predictions:
+            print("❌ Aucune prédiction à envoyer")
+            return
 
-        # Envois quotidiens
-        while True:
-            now = datetime.now()
-            next_run = now.replace(hour=8, minute=0, second=0, microsecond=0)
-            if now.hour >= 8:
-                next_run += timedelta(days=1)
-            
-            wait_time = (next_run - now).total_seconds()
-            print(f"Prochain envoi prévu à {next_run}")
-            await asyncio.sleep(wait_time)
-            await self.prepare_and_send_predictions()
+        print("\n4️⃣ ENVOI DU COMBO")
+        message = self._format_predictions_message(predictions)
+        try:
+            self.bot.send_message(
+                chat_id=self.config.TELEGRAM_CHAT_ID,
+                text=message,
+                parse_mode="Markdown",
+                disable_web_page_preview=True
+            )
+            print("✅ Combo envoyé avec succès!")
+            self.last_execution_date = datetime.now().date()
+        except Exception as e:
+            print(f"❌ Erreur: {str(e)}")
+            raise
+
+    def run_daily_task(self):
+        print("\n=== TÂCHE QUOTIDIENNE ===")
+        self.immediate_combo_sent = False
+        self.run()
+
+    def run(self) -> None:
+        try:
+            print("\n=== DÉBUT DU PROCESSUS ===")
+            matches = self.fetch_matches()
+            if not matches:
+                return
+
+            predictions = []
+            for i, match in enumerate(matches, 1):
+                stats = self.get_match_stats(match)
+                if stats:
+                    prediction = self.analyze_match(match, stats)
+                    if prediction:
+                        predictions.append(prediction)
+                time.sleep(10)
+
+            if predictions:
+                self.send_predictions(predictions)
+                self.immediate_combo_sent = True
+                print("=== PROCESSUS TERMINÉ ===")
+            else:
+                print("❌ Aucune prédiction fiable")
+
+        except Exception as e:
+            print(f"❌ ERREUR: {str(e)}")
+
+def main():
+    print("\n=== DÉMARRAGE DU BOT ===")
+    
+    config = Config(
+        TELEGRAM_BOT_TOKEN="7859048967:AAGtkGTwIUDN44PZB76EyvD1zogyJPCMOmw",
+        TELEGRAM_CHAT_ID="-1002421926748",
+        ODDS_API_KEY="8ce4f4b9669d59606d10cb285d68b9fd",
+        PERPLEXITY_API_KEY="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",
+        CLAUDE_API_KEY="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",
+    )
+    
+    bot = BettingBot(config)
+
+    # Combo immédiat
+    print("Lancement du combo immédiat...")
+    bot.immediate_combo_sent = False
+    bot.last_execution_date = None
+    bot.run()
+
+    # Planification quotidienne
+    print("\nConfiguration de la tâche quotidienne...")
+    schedule.every().day.at("08:00").do(bot.run_daily_task)
+
+    print("\n=== BOT EN ATTENTE (PROCHAIN COMBO À 8H00) ===")
+    while True:
+        try:
+            schedule.run_pending()
+            time.sleep(120)
+        except Exception as e:
+            print(f"❌ Erreur dans la boucle principale : {str(e)}")
+            time.sleep(120)
+            continue
 
 if __name__ == "__main__":
-    print(f"Service démarré le {datetime.now()}")
-    print("Premier envoi immédiat puis chaque jour à 8h00")
-    asyncio.run(FootballPredictor().run())
+    main()
