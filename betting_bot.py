@@ -359,3 +359,29 @@ class BettingBot:
 
         except Exception as e:
             print(f"❌ ERREUR: {str(e)}")
+
+if predictions:
+                self.send_predictions(predictions)
+                self.immediate_combo_sent = True
+                print("=== PROCESSUS TERMINÉ ===")
+            else:
+                print("❌ Aucune prédiction fiable")
+
+        except Exception as e:
+            print(f"❌ ERREUR: {str(e)}")
+
+if __name__ == "__main__":
+    # Pour tester le bot localement
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    config = Config(
+        TELEGRAM_BOT_TOKEN=os.getenv('TELEGRAM_BOT_TOKEN'),
+        TELEGRAM_CHAT_ID=os.getenv('TELEGRAM_CHAT_ID'),
+        ODDS_API_KEY=os.getenv('ODDS_API_KEY'),
+        PERPLEXITY_API_KEY=os.getenv('PERPLEXITY_API_KEY'),
+        CLAUDE_API_KEY=os.getenv('CLAUDE_API_KEY')
+    )
+    
+    bot = BettingBot(config)
+    bot.run()
