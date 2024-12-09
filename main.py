@@ -186,47 +186,15 @@ class BettingBot:
             print(f"❌ ERREUR: {str(e)}")
 
 
-def main():
-    config = Config(
-        TELEGRAM_BOT_TOKEN=os.getenv('TELEGRAM_BOT_TOKEN'),
-        TELEGRAM_CHAT_ID=os.getenv('TELEGRAM_CHAT_ID'),
-        ODDS_API_KEY=os.getenv('ODDS_API_KEY'),
-        PERPLEXITY_API_KEY=os.getenv('PERPLEXITY_API_KEY'),
-        CLAUDE_API_KEY=os.getenv('CLAUDE_API_KEY')
-    )
-
-    bot = BettingBot(config)
-
-    # Envoi du combo immédiat au démarrage
-    print("=== DÉMARRAGE DU BOT ===")
-    bot.run()
-
-    # Planification quotidienne
-    schedule.every().day.at("08:00").do(bot.run)
-
-    print("=== BOT EN ATTENTE DE TÂCHES ===")
-    while True:
-        schedule.run_pending()
-        time.sleep(60)
-
-
-if __name__ == "__main__":
-    main()
-
-
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import os
 import threading
+import schedule
+import time
 
-# Vérifiez si toutes les variables d'environnement nécessaires sont présentes
-required_keys = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'ODDS_API_KEY', 'PERPLEXITY_API_KEY', 'CLAUDE_API_KEY']
-for key in required_keys:
-    if not os.getenv(key):
-        print(f"⚠️ La variable d'environnement {key} est manquante ou vide. Assurez-vous de l'avoir configurée dans Render.")
-
-# Lancer un serveur HTTP minimal pour que Render détecte le port
 def start_http_server():
-    port = int(os.getenv("PORT", 8080))  # Render fournit automatiquement cette variable
+    """Démarre un serveur HTTP minimal pour Render"""
+    port = int(os.getenv("PORT", 8080))  # Render définit automatiquement la variable d'environnement PORT
     class SimpleHandler(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
@@ -237,18 +205,54 @@ def start_http_server():
     print(f"🚀 HTTP server started on port {port}")
     httpd.serve_forever()
 
-if __name__ == "__main__":
-    # Lancer le bot dans un thread parallèle pour éviter de bloquer le serveur HTTP
+def main():
+    """Fonction principale pour configurer et démarrer le bot"""
     try:
-        bot_thread = threading.Thread(target=main, daemon=True)  # `main` est votre fonction principale
-        bot_thread.start()
-        start_http_server()
+        # Configuration des clés d'environnement
+        config = Config(
+            TELEGRAM_BOT_TOKEN=os.getenv('TELEGRAM_BOT_TOKEN'),
+            TELEGRAM_CHAT_ID=os.getenv('TELEGRAM_CHAT_ID'),
+            ODDS_API_KEY=os.getenv('ODDS_API_KEY'),
+            PERPLEXITY_API_KEY=os.getenv('PERPLEXITY_API_KEY'),
+            CLAUDE_API_KEY=os.getenv('CLAUDE_API_KEY')
+        )
+
+        # Vérifiez si toutes les variables nécessaires sont définies
+        required_keys = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'ODDS_API_KEY', 'PERPLEXITY_API_KEY', 'CLAUDE_API_KEY']
+        for key in required_keys:
+            if not os.getenv(key):
+                raise ValueError(f"⚠️ La variable d'environnement {key} est manquante ou vide.")
+
+        # Initialisation du bot
+        bot = BettingBot(config)
+        print("✅ Bot initialisé avec succès !")
+
+        # Envoi du combo immédiat au démarrage
+        print("=== DÉMARRAGE DU BOT ===")
+        bot.run()
+
+        # Planification quotidienne
+        schedule.every().day.at("08:00").do(bot.run)
+
+        print("=== BOT EN ATTENTE DE TÂCHES ===")
+        while True:
+            schedule.run_pending()
+            time.sleep(60)
+
     except Exception as e:
-        print(f"❌ Erreur lors de l'initialisation : {e}")
-        exit(1)
+        # Gérer les erreurs d'initialisation
+        print(f"❌ Erreur pendant l'exécution principale : {e}")
 
+if __name__ == "__main__":
+    # Lancer le bot dans un thread parallèle
+    try:
+        bot_thread = threading.Thread(target=main, daemon=True)
+        bot_thread.start()
+    except Exception as e:
+        print(f"❌ Erreur lors du démarrage du bot : {e}")
 
-
-    # Lancer le serveur HTTP
+    # Lancer le serveur HTTP minimal pour satisfaire Render
     start_http_server()
+
+
 
