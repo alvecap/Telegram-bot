@@ -412,14 +412,38 @@ class BettingBot:
         except Exception as e:
             print(f"❌ ERREUR: {str(e)}")
 def main():
-    # Configuration du bot
+    print("\n=== DÉMARRAGE DU BOT ===")
+    
+    # Chargement des variables d'environnement
+    load_dotenv()
+    
+    # Vérification des clés API
+    print("Vérification des variables d'environnement:")
+    api_keys = {
+        'TELEGRAM_BOT_TOKEN': os.getenv('TELEGRAM_BOT_TOKEN'),
+        'TELEGRAM_CHAT_ID': os.getenv('TELEGRAM_CHAT_ID'),
+        'ODDS_API_KEY': os.getenv('ODDS_API_KEY'),
+        'PERPLEXITY_API_KEY': os.getenv('PERPLEXITY_API_KEY'),
+        'CLAUDE_API_KEY': os.getenv('CLAUDE_API_KEY')
+    }
+    
     config = Config(
-        TELEGRAM_BOT_TOKEN=os.getenv('TELEGRAM_BOT_TOKEN'),
-        TELEGRAM_CHAT_ID=os.getenv('TELEGRAM_CHAT_ID'),
-        ODDS_API_KEY=os.getenv('ODDS_API_KEY'),
-        PERPLEXITY_API_KEY=os.getenv('PERPLEXITY_API_KEY'),
-        CLAUDE_API_KEY=os.getenv('CLAUDE_API_KEY')
+        TELEGRAM_BOT_TOKEN=api_keys['TELEGRAM_BOT_TOKEN'],
+        TELEGRAM_CHAT_ID=api_keys['TELEGRAM_CHAT_ID'],
+        ODDS_API_KEY=api_keys['ODDS_API_KEY'],
+        PERPLEXITY_API_KEY=api_keys['PERPLEXITY_API_KEY'],
+        CLAUDE_API_KEY=api_keys['CLAUDE_API_KEY']
     )
+    
+    bot = BettingBot(config)
+
+    # Combo immédiat
+    print("Lancement du combo immédiat...")
+    bot.immediate_combo_sent = False
+    bot.last_execution_date = None
+    bot.run()
+
+    return bot  # Pour pouvoir l'utiliser dans le serveur web si nécessaire
     
     # Initialisation et démarrage du bot
     bot = BettingBot(config)
