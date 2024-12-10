@@ -345,6 +345,11 @@ class BettingBot:
         
         return message
 
+  import asyncio
+
+class BettingBot:
+    # ... autres méthodes ...
+
     def send_predictions(self, predictions: List[Prediction]) -> None:
         if not predictions:
             print("❌ Aucune prédiction à envoyer")
@@ -353,16 +358,28 @@ class BettingBot:
         print("\n4️⃣ ENVOI DU COMBO")
         message = self._format_predictions_message(predictions)
         try:
-            self.bot.send_message(
-                chat_id=self.config.TELEGRAM_CHAT_ID,
-                text=message,
-                parse_mode="Markdown",
-                disable_web_page_preview=True
+            # Créer une nouvelle boucle d'événements
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            # Envoyer le message de manière asynchrone
+            loop.run_until_complete(
+                self.bot.send_message(
+                    chat_id=self.config.TELEGRAM_CHAT_ID,
+                    text=message,
+                    parse_mode="Markdown",
+                    disable_web_page_preview=True
+                )
             )
+            
+            # Fermer la boucle
+            loop.close()
+            
             print("✅ Combo envoyé avec succès!")
             self.last_execution_date = datetime.now().date()
+            
         except Exception as e:
-            print(f"❌ Erreur: {str(e)}")
+            print(f"❌ Erreur lors de l'envoi: {str(e)}")
             raise
 
     def run_daily_task(self):
