@@ -318,7 +318,7 @@ class BettingBot:
             print(f"❌ Erreur: {str(e)}")
             return None
 
-   def _format_predictions_message(self, predictions: List[Prediction]) -> str:
+  def _format_predictions_message(self, predictions: List[Prediction]) -> str:
         current_date = datetime.now().strftime("%d/%m/%Y")
         
         message = f"🎯 *COMBO DU {current_date}* 🎯\n\n"
