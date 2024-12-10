@@ -55,7 +55,7 @@ class Prediction:
     explanation: str
 
 class BettingBot:
-   def __init__(self, config: Config):
+    def __init__(self, config: Config):
         print("Initialisation du bot...")
         self.config = config
         
@@ -68,12 +68,9 @@ class BettingBot:
         
         try:
             self.bot = telegram.Bot(token=config.TELEGRAM_BOT_TOKEN)
-            
-            # Initialisation avec des headers explicites
             self.claude_client = anthropic.Anthropic(
                 api_key=claude_key
             )
-            
             print("Test de la connexion Claude (message court)...")
             test_message = self.claude_client.messages.create(
                 model="claude-3-5-sonnet-20241022",
@@ -81,7 +78,6 @@ class BettingBot:
                 messages=[{"role": "user", "content": "test"}]
             )
             print("✅ Connexion Claude OK")
-            
         except Exception as e:
             print(f"❌ Erreur d'initialisation détaillée:")
             print(f"Type d'erreur: {type(e)}")
