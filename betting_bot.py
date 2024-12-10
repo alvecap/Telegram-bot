@@ -54,6 +54,8 @@ class Prediction:
     confidence: int
     explanation: str
 
+from retry import retry
+
 class BettingBot:
     def __init__(self, config: Config):
         print("Initialisation du bot...")
@@ -68,16 +70,16 @@ class BettingBot:
         
         try:
             self.bot = telegram.Bot(token=config.TELEGRAM_BOT_TOKEN)
+            
+            # Configuration des headers
             self.claude_client = anthropic.Anthropic(
                 api_key=claude_key
             )
-            print("Test de la connexion Claude (message court)...")
-            test_message = self.claude_client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=10,
-                messages=[{"role": "user", "content": "test"}]
-            )
+            
+            # Test avec retry
+            self._test_claude_connection()
             print("✅ Connexion Claude OK")
+            
         except Exception as e:
             print(f"❌ Erreur d'initialisation détaillée:")
             print(f"Type d'erreur: {type(e)}")
@@ -91,6 +93,16 @@ class BettingBot:
         self.last_execution_date = None
         self.available_predictions = ["+1.5 buts", "-3.5 buts", "1X", "X2", "12"]
         print("Bot initialisé avec succès!")
+
+    @retry(tries=5, delay=2, backoff=2, max_delay=30)
+    def _test_claude_connection(self):
+        print("Test de la connexion Claude (message court)...")
+        test_message = self.claude_client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=10,
+            messages=[{"role": "user", "content": "test"}]
+        )
+        return test_message
 
     def _get_region(self, competition: str) -> str:
         regions = {
