@@ -347,7 +347,7 @@ class BettingBot:
                         predictions.append(prediction)
                 time.sleep(10)
 
-      if predictions:
+            if predictions:
                 self.send_predictions(predictions)
                 self.immediate_combo_sent = True
                 print("=== PROCESSUS TERMINÉ ===")
@@ -356,7 +356,6 @@ class BettingBot:
 
         except Exception as e:
             print(f"❌ ERREUR: {str(e)}")
-
 def main():
     # Configuration du bot
     config = Config(
