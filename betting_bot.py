@@ -13,6 +13,7 @@ import os
 import sys
 import schedule
 from dotenv import load_dotenv
+import asyncio
 
 logging.basicConfig(
     level=logging.INFO,
@@ -344,8 +345,6 @@ class BettingBot:
         )
         
         return message
-
-  import asyncio
 
 class BettingBot:
     # ... autres méthodes ...
