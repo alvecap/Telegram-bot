@@ -221,6 +221,7 @@ class BettingBot:
 
         print("3️⃣ ANALYSE AVEC CLAUDE")
         try:
+            # Préparation des cotes
             odds_info = "ANALYSE DÉTAILLÉE DES COTES:\n\n"
             h2h_odds = []
             over_under_odds = []
@@ -318,7 +319,7 @@ class BettingBot:
             print(f"❌ Erreur: {str(e)}")
             return None
 
-  def _format_predictions_message(self, predictions: List[Prediction]) -> str:
+def _format_predictions_message(self, predictions: List[Prediction]) -> str:
         current_date = datetime.now().strftime("%d/%m/%Y")
         
         message = f"🎯 *COMBO DU {current_date}* 🎯\n\n"
@@ -403,6 +404,7 @@ class BettingBot:
 
         except Exception as e:
             print(f"❌ ERREUR: {str(e)}")
+
 
 def main():
     print("\n=== DÉMARRAGE DU BOT ===")
