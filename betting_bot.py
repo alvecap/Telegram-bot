@@ -2,6 +2,7 @@ import requests
 import anthropic
 import logging
 import telegram
+import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Optional
 from dataclasses import dataclass
@@ -13,8 +14,8 @@ import os
 import sys
 import schedule
 from dotenv import load_dotenv
-import asyncio
 
+# Configuration des logs
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -55,14 +56,12 @@ class Prediction:
     confidence: int
     explanation: str
 
-from retry import retry
-
 class BettingBot:
     def __init__(self, config: Config):
         print("Initialisation du bot...")
         self.config = config
         
-        # Vérification détaillée de la clé Claude
+        # Vérification de la clé Claude
         claude_key = config.CLAUDE_API_KEY.strip()
         print(f"Format de la clé Claude:")
         print(f"- Longueur: {len(claude_key)} caractères")
@@ -71,18 +70,16 @@ class BettingBot:
         
         try:
             self.bot = telegram.Bot(token=config.TELEGRAM_BOT_TOKEN)
-            
-            # Configuration des headers
             self.claude_client = anthropic.Anthropic(
                 api_key=claude_key
             )
             
-            # Test avec retry
+            print("Test de la connexion Claude...")
             self._test_claude_connection()
             print("✅ Connexion Claude OK")
             
         except Exception as e:
-            print(f"❌ Erreur d'initialisation détaillée:")
+            print(f"❌ Erreur d'initialisation:")
             print(f"Type d'erreur: {type(e)}")
             print(f"Message d'erreur: {str(e)}")
             if hasattr(e, 'response'):
@@ -97,7 +94,6 @@ class BettingBot:
 
     @retry(tries=5, delay=2, backoff=2, max_delay=30)
     def _test_claude_connection(self):
-        print("Test de la connexion Claude (message court)...")
         test_message = self.claude_client.messages.create(
             model="claude-3-5-sonnet-20241022",
             max_tokens=10,
@@ -226,7 +222,6 @@ class BettingBot:
         print("3️⃣ ANALYSE AVEC CLAUDE")
         try:
             odds_info = "ANALYSE DÉTAILLÉE DES COTES:\n\n"
-            
             h2h_odds = []
             over_under_odds = []
             draw_no_bet_odds = []
@@ -323,7 +318,7 @@ class BettingBot:
             print(f"❌ Erreur: {str(e)}")
             return None
 
-    def _format_predictions_message(self, predictions: List[Prediction]) -> str:
+   def _format_predictions_message(self, predictions: List[Prediction]) -> str:
         current_date = datetime.now().strftime("%d/%m/%Y")
         
         message = f"🎯 *COMBO DU {current_date}* 🎯\n\n"
@@ -345,9 +340,6 @@ class BettingBot:
         )
         
         return message
-
-class BettingBot:
-    # ... autres méthodes ...
 
     def send_predictions(self, predictions: List[Prediction]) -> None:
         if not predictions:
@@ -411,6 +403,7 @@ class BettingBot:
 
         except Exception as e:
             print(f"❌ ERREUR: {str(e)}")
+
 def main():
     print("\n=== DÉMARRAGE DU BOT ===")
     
@@ -426,7 +419,7 @@ def main():
         'PERPLEXITY_API_KEY': os.getenv('PERPLEXITY_API_KEY'),
         'CLAUDE_API_KEY': os.getenv('CLAUDE_API_KEY')
     }
-    
+
     config = Config(
         TELEGRAM_BOT_TOKEN=api_keys['TELEGRAM_BOT_TOKEN'],
         TELEGRAM_CHAT_ID=api_keys['TELEGRAM_CHAT_ID'],
@@ -443,29 +436,7 @@ def main():
     bot.last_execution_date = None
     bot.run()
 
-    return bot  # Pour pouvoir l'utiliser dans le serveur web si nécessaire
-    
-    # Initialisation et démarrage du bot
-    bot = BettingBot(config)
-    
-    # Envoi du combo immédiat
-    print("=== DÉMARRAGE DU BOT - ENVOI DU COMBO IMMÉDIAT ===")
-    bot.immediate_combo_sent = False
-    bot.last_execution_date = None
-    bot.run()
-
-    # Planification du combo quotidien
-    schedule.every().day.at("08:00").do(bot.run_daily_task)
-    
-    # Boucle principale
-    print("=== BOT EN ATTENTE DU PROCHAIN COMBO À 8H00 ===")
-    while True:
-        try:
-            schedule.run_pending()
-            time.sleep(120)  # Vérification toutes les 2 minutes
-        except Exception as e:
-            print(f"❌ Erreur dans la boucle principale : {str(e)}")
-            time.sleep(120)
+    return bot
 
 if __name__ == "__main__":
     main()
