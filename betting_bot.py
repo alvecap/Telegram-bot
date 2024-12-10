@@ -58,8 +58,29 @@ class BettingBot:
     def __init__(self, config: Config):
         print("Initialisation du bot...")
         self.config = config
-        self.bot = telegram.Bot(token=config.TELEGRAM_BOT_TOKEN)
-        self.claude_client = anthropic.Anthropic(api_key=config.CLAUDE_API_KEY)
+        
+        # Vérification de la clé Claude
+        print(f"Claude API Key: {config.CLAUDE_API_KEY[:10]}...")
+        
+        try:
+            self.bot = telegram.Bot(token=config.TELEGRAM_BOT_TOKEN)
+            self.claude_client = anthropic.Anthropic(
+                api_key=config.CLAUDE_API_KEY.strip()  # Assurons-nous qu'il n'y a pas d'espaces
+            )
+            
+            # Test de connexion Claude
+            print("Test de la connexion Claude...")
+            test_message = self.claude_client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=10,
+                messages=[{"role": "user", "content": "test"}]
+            )
+            print("✅ Connexion Claude OK")
+            
+        except Exception as e:
+            print(f"❌ Erreur d'initialisation: {str(e)}")
+            raise
+
         self.immediate_combo_sent = False
         self.last_execution_date = None
         self.available_predictions = ["+1.5 buts", "-3.5 buts", "1X", "X2", "12"]
