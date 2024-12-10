@@ -36,13 +36,3 @@ if __name__ == "__main__":
     app.run(host='0.0.0.0', port=port)
 
 
-def run_bot():
-    try:
-        # Ajoutez ces lignes au début de la fonction run_bot
-        print("Checking environment variables:")
-        print(f"CLAUDE_API_KEY présente: {'CLAUDE_API_KEY' in os.environ}")
-        print(f"CLAUDE_API_KEY format: {os.environ.get('CLAUDE_API_KEY', '')[:7]}...")  # Affiche seulement le début
-        
-        bot_main()
-    except Exception as e:
-        print(f"Bot error: {str(e)}")
