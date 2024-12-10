@@ -55,21 +55,26 @@ class Prediction:
     explanation: str
 
 class BettingBot:
-    def __init__(self, config: Config):
+   def __init__(self, config: Config):
         print("Initialisation du bot...")
         self.config = config
         
-        # Vérification de la clé Claude
-        print(f"Claude API Key: {config.CLAUDE_API_KEY[:10]}...")
+        # Vérification détaillée de la clé Claude
+        claude_key = config.CLAUDE_API_KEY.strip()
+        print(f"Format de la clé Claude:")
+        print(f"- Longueur: {len(claude_key)} caractères")
+        print(f"- Début de la clé: {claude_key[:15]}...")
+        print(f"- La clé commence-t-elle par 'sk-ant-': {claude_key.startswith('sk-ant-')}")
         
         try:
             self.bot = telegram.Bot(token=config.TELEGRAM_BOT_TOKEN)
+            
+            # Initialisation avec des headers explicites
             self.claude_client = anthropic.Anthropic(
-                api_key=config.CLAUDE_API_KEY.strip()  # Assurons-nous qu'il n'y a pas d'espaces
+                api_key=claude_key
             )
             
-            # Test de connexion Claude
-            print("Test de la connexion Claude...")
+            print("Test de la connexion Claude (message court)...")
             test_message = self.claude_client.messages.create(
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=10,
@@ -78,7 +83,12 @@ class BettingBot:
             print("✅ Connexion Claude OK")
             
         except Exception as e:
-            print(f"❌ Erreur d'initialisation: {str(e)}")
+            print(f"❌ Erreur d'initialisation détaillée:")
+            print(f"Type d'erreur: {type(e)}")
+            print(f"Message d'erreur: {str(e)}")
+            if hasattr(e, 'response'):
+                print(f"Response status: {e.response.status_code}")
+                print(f"Response headers: {e.response.headers}")
             raise
 
         self.immediate_combo_sent = False
